@@ -39,15 +39,16 @@
         const MAX_MEMBERS = 5;
 
         // Current group being viewed
-        let currentGroup = null;
+        let currentGroup = 'group1';
 
         // Reference to all groups in database
         const groupsRef = ref(database, 'groups');
 
         // Function to add member to a group
-        window.addMember = function(groupKey) {
-            const inputId = `input_${groupKey}`;
-            const input = document.getElementById(inputId);
+        window.addMember = function() {
+            // Get current group
+            const groupKey = currentGroup;
+            const input = document.getElementById('memberInput');
             const name = input.value.trim();
             
             if (!name) {
@@ -115,20 +116,9 @@
             // Update header
             document.getElementById('groupTitle').textContent = `Kumpulan ${groupName}`;
             
-            // Update input button to match current group
+            // Update input placeholder
             const inputField = document.getElementById('memberInput');
-            const addButton = document.getElementById('addButton');
             inputField.placeholder = `Masukkan nama untuk kumpulan ${groupName}...`;
-            addButton.onclick = function() {
-                addMember(groupKey);
-            };
-            
-            // Also update the input field to submit on Enter key
-            inputField.onkeypress = function(e) {
-                if (e.key === 'Enter') {
-                    addMember(groupKey);
-                }
-            };
             
             // Get members
             const groupRef = ref(database, `groups/${groupKey}`);
@@ -191,6 +181,21 @@
 
         // Initialize with first group
         window.onload = function() {
+            // Setup add button
+            const addButton = document.getElementById('addButton');
+            addButton.onclick = function() {
+                window.addMember();
+            };
+            
+            // Setup Enter key
+            const inputField = document.getElementById('memberInput');
+            inputField.onkeypress = function(e) {
+                if (e.key === 'Enter') {
+                    window.addMember();
+                }
+            };
+            
+            // Select first group
             selectGroup('group1');
         };
 
