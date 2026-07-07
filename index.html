@@ -4,14 +4,72 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OS Course Grouping - DIT1C</title>
-    
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Program Operating System</h1>
+        <p class="subtitle">Kelas DIT1C - Pembahagian Kumpulan</p>
+
+        <!-- Group Buttons -->
+        <div class="group-buttons">
+            <button class="group-btn" id="btn_group1" onclick="selectGroup('group1')">
+                🟥 MONO
+            </button>
+            <button class="group-btn" id="btn_group2" onclick="selectGroup('group2')">
+                🟩 LAYERED
+            </button>
+            <button class="group-btn" id="btn_group3" onclick="selectGroup('group3')">
+                🟦 MICRO
+            </button>
+            <button class="group-btn" id="btn_group4" onclick="selectGroup('group4')">
+                🟧 NETWORKED
+            </button>
+            <button class="group-btn" id="btn_group5" onclick="selectGroup('group5')">
+                🟪 KERNEL
+            </button>
+        </div>
+
+        <!-- Group Display -->
+        <div class="group-header">
+            <span class="group-title" id="groupTitle">Kumpulan MONO</span>
+            <span class="member-count" id="memberCount">0/5</span>
+        </div>
+
+        <!-- Members Grid -->
+        <div class="members-grid" id="membersContainer">
+            <!-- Dynamic content -->
+        </div>
+
+        <!-- Add Member -->
+        <div class="add-member-section">
+            <input type="text" id="memberInput" placeholder="Masukkan nama pelajar..." />
+            <button id="addButton">➕ Tambah</button>
+        </div>
+
+        <div class="info-text">
+            ⚠️ Setiap kumpulan hanya boleh mempunyai <strong>5 orang</strong> sahaja. 
+            Nama yang telah didaftarkan <strong>tidak boleh</strong> dikeluarkan.
+        </div>
+    </div>
+
     <!-- Firebase SDK -->
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+                "firebase/analytics": "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js",
+                "firebase/database": "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"
+            }
+        }
+    </script>
+
     <script type="module">
-        // Import Firebase SDK
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-        
-        // Firebase configuration
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "firebase/app";
+        import { getAnalytics } from "firebase/analytics";
+        import { getDatabase, ref, set, onValue, push, get, child, remove } from "firebase/database";
+
+        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDpl9UI-HYH8rjqUhNiU8jc4rF2kMTyttU",
             authDomain: "grouping-fedd0.firebaseapp.com",
@@ -24,7 +82,10 @@
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
         const database = getDatabase(app);
+
+        console.log('✅ Firebase Connected Successfully!');
 
         // Group names
         const groupNames = {
@@ -37,17 +98,10 @@
 
         // Maximum members per group
         const MAX_MEMBERS = 5;
-
-        // Current group being viewed
         let currentGroup = 'group1';
-
-        // Reference to all groups in database
-        const groupsRef = ref(database, 'groups');
 
         // Function to add member to a group
         window.addMember = function() {
-            // Get current group
-            const groupKey = currentGroup;
             const input = document.getElementById('memberInput');
             const name = input.value.trim();
             
@@ -56,55 +110,74 @@
                 return;
             }
 
-            // Check if name already exists in any group
-            get(groupsRef).then((snapshot) => {
+            // Get current group reference
+            const groupRef = ref(database, `groups/${currentGroup}`);
+            
+            // First, check if group already exists and count members
+            get(groupRef).then((snapshot) => {
+                let memberCount = 0;
+                let existingMembers = [];
+                
                 if (snapshot.exists()) {
                     const data = snapshot.val();
-                    let nameExists = false;
+                    // Check if data is an object (not array)
+                    if (typeof data === 'object') {
+                        existingMembers = Object.values(data);
+                        memberCount = existingMembers.length;
+                    }
+                }
+                
+                // Check if name already exists in this group
+                if (existingMembers.some(m => m.toLowerCase() === name.toLowerCase())) {
+                    alert(`Nama "${name}" sudah ada dalam kumpulan ${groupNames[currentGroup]}!`);
+                    return;
+                }
+                
+                // Check if group is full
+                if (memberCount >= MAX_MEMBERS) {
+                    alert(`Kumpulan ${groupNames[currentGroup]} sudah penuh! (Maksimum ${MAX_MEMBERS} orang)`);
+                    return;
+                }
+                
+                // Check if name exists in any other group
+                const allGroupsRef = ref(database, 'groups');
+                get(allGroupsRef).then((allSnapshot) => {
+                    let nameExistsElsewhere = false;
                     
-                    // Check all groups
-                    for (const group in data) {
-                        if (data[group] && typeof data[group] === 'object') {
-                            for (const member in data[group]) {
-                                if (data[group][member].toLowerCase() === name.toLowerCase()) {
-                                    nameExists = true;
+                    if (allSnapshot.exists()) {
+                        const allData = allSnapshot.val();
+                        for (const groupKey in allData) {
+                            if (groupKey !== currentGroup && typeof allData[groupKey] === 'object') {
+                                const members = Object.values(allData[groupKey]);
+                                if (members.some(m => m.toLowerCase() === name.toLowerCase())) {
+                                    nameExistsElsewhere = true;
                                     break;
                                 }
                             }
                         }
-                        if (nameExists) break;
                     }
                     
-                    if (nameExists) {
-                        alert(`Nama "${name}" telah pun didaftarkan dalam kumpulan lain!`);
-                        return;
-                    }
-                }
-
-                // Get current group members
-                const groupRef = ref(database, `groups/${groupKey}`);
-                get(groupRef).then((snapshot) => {
-                    let memberCount = 0;
-                    if (snapshot.exists()) {
-                        memberCount = Object.keys(snapshot.val()).length;
-                    }
-                    
-                    if (memberCount >= MAX_MEMBERS) {
-                        alert(`Kumpulan ${groupNames[groupKey]} sudah penuh! (Maksimum ${MAX_MEMBERS} orang)`);
+                    if (nameExistsElsewhere) {
+                        alert(`Nama "${name}" telah didaftarkan dalam kumpulan lain!`);
                         return;
                     }
                     
-                    // Add new member
+                    // Add new member using push (creates unique key)
                     const newMemberRef = push(groupRef);
                     set(newMemberRef, name)
                         .then(() => {
                             input.value = '';
-                            alert(`Berjaya mendaftar ${name} ke dalam kumpulan ${groupNames[groupKey]}!`);
+                            alert(`✅ Berjaya mendaftar ${name} ke dalam kumpulan ${groupNames[currentGroup]}!`);
+                            console.log(`✅ Added ${name} to ${groupNames[currentGroup]}`);
                         })
                         .catch((error) => {
-                            alert('Ralat: ' + error.message);
+                            console.error('❌ Error adding member:', error);
+                            alert('❌ Ralat: ' + error.message);
                         });
                 });
+            }).catch((error) => {
+                console.error('❌ Error checking group:', error);
+                alert('❌ Ralat: ' + error.message);
             });
         };
 
@@ -120,45 +193,41 @@
             const inputField = document.getElementById('memberInput');
             inputField.placeholder = `Masukkan nama untuk kumpulan ${groupName}...`;
             
-            // Get members
+            // Get members from Firebase
             const groupRef = ref(database, `groups/${groupKey}`);
             onValue(groupRef, (snapshot) => {
                 const container = document.getElementById('membersContainer');
                 container.innerHTML = '';
                 
+                let members = [];
+                
                 if (snapshot.exists()) {
-                    const members = snapshot.val();
-                    const memberKeys = Object.keys(members);
-                    
-                    // Display existing members
-                    memberKeys.forEach((key) => {
-                        const memberDiv = document.createElement('div');
-                        memberDiv.className = 'member-box filled';
-                        memberDiv.textContent = members[key];
-                        container.appendChild(memberDiv);
-                    });
-                    
-                    // Display empty slots
-                    const emptySlots = MAX_MEMBERS - memberKeys.length;
-                    for (let i = 0; i < emptySlots; i++) {
-                        const emptyDiv = document.createElement('div');
-                        emptyDiv.className = 'member-box empty';
-                        emptyDiv.textContent = 'Kosong';
-                        container.appendChild(emptyDiv);
-                    }
-                } else {
-                    // All slots empty
-                    for (let i = 0; i < MAX_MEMBERS; i++) {
-                        const emptyDiv = document.createElement('div');
-                        emptyDiv.className = 'member-box empty';
-                        emptyDiv.textContent = 'Kosong';
-                        container.appendChild(emptyDiv);
+                    const data = snapshot.val();
+                    // Convert object to array if needed
+                    if (typeof data === 'object') {
+                        members = Object.values(data);
                     }
                 }
                 
+                // Display existing members
+                members.forEach((member) => {
+                    const memberDiv = document.createElement('div');
+                    memberDiv.className = 'member-box filled';
+                    memberDiv.textContent = member;
+                    container.appendChild(memberDiv);
+                });
+                
+                // Display empty slots
+                const emptySlots = MAX_MEMBERS - members.length;
+                for (let i = 0; i < emptySlots; i++) {
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.className = 'member-box empty';
+                    emptyDiv.textContent = 'Kosong';
+                    container.appendChild(emptyDiv);
+                }
+                
                 // Update member count
-                const memberCount = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
-                document.getElementById('memberCount').textContent = `${memberCount}/${MAX_MEMBERS}`;
+                document.getElementById('memberCount').textContent = `${members.length}/${MAX_MEMBERS}`;
             }, {
                 onlyOnce: false
             });
@@ -179,11 +248,12 @@
             displayGroup(groupKey);
         };
 
-        // Initialize with first group
+        // Initialize
         window.onload = function() {
             // Setup add button
             const addButton = document.getElementById('addButton');
-            addButton.onclick = function() {
+            addButton.onclick = function(e) {
+                e.preventDefault();
                 window.addMember();
             };
             
@@ -191,6 +261,7 @@
             const inputField = document.getElementById('memberInput');
             inputField.onkeypress = function(e) {
                 if (e.key === 'Enter') {
+                    e.preventDefault();
                     window.addMember();
                 }
             };
@@ -492,52 +563,5 @@
             }
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📚 Program Operating System</h1>
-        <p class="subtitle">Kelas DIT1C - Pembahagian Kumpulan</p>
-
-        <!-- Group Buttons -->
-        <div class="group-buttons">
-            <button class="group-btn" id="btn_group1" onclick="selectGroup('group1')">
-                🟥 MONO
-            </button>
-            <button class="group-btn" id="btn_group2" onclick="selectGroup('group2')">
-                🟩 LAYERED
-            </button>
-            <button class="group-btn" id="btn_group3" onclick="selectGroup('group3')">
-                🟦 MICRO
-            </button>
-            <button class="group-btn" id="btn_group4" onclick="selectGroup('group4')">
-                🟧 NETWORKED
-            </button>
-            <button class="group-btn" id="btn_group5" onclick="selectGroup('group5')">
-                🟪 KERNEL
-            </button>
-        </div>
-
-        <!-- Group Display -->
-        <div class="group-header">
-            <span class="group-title" id="groupTitle">Kumpulan MONO</span>
-            <span class="member-count" id="memberCount">0/5</span>
-        </div>
-
-        <!-- Members Grid -->
-        <div class="members-grid" id="membersContainer">
-            <!-- Dynamic content -->
-        </div>
-
-        <!-- Add Member -->
-        <div class="add-member-section">
-            <input type="text" id="memberInput" placeholder="Masukkan nama pelajar..." />
-            <button id="addButton">➕ Tambah</button>
-        </div>
-
-        <div class="info-text">
-            ⚠️ Setiap kumpulan hanya boleh mempunyai <strong>5 orang</strong> sahaja. 
-            Nama yang telah didaftarkan <strong>tidak boleh</strong> dikeluarkan.
-        </div>
-    </div>
 </body>
 </html>
