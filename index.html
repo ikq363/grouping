@@ -32,7 +32,7 @@
         <!-- Group Display -->
         <div class="group-header">
             <span class="group-title" id="groupTitle">Kumpulan MONO</span>
-            <span class="member-count" id="memberCount">0/5</span>
+            <span class="member-count" id="memberCount">0/6</span>
         </div>
 
         <!-- Members Grid -->
@@ -47,7 +47,7 @@
         </div>
 
         <div class="info-text">
-            ⚠️ Setiap kumpulan hanya boleh mempunyai <strong>5 orang</strong> sahaja. 
+            ⚠️ Setiap kumpulan hanya boleh mempunyai <strong>6 orang</strong> sahaja. 
             Nama yang telah didaftarkan <strong>tidak boleh</strong> dikeluarkan.
         </div>
     </div>
@@ -110,8 +110,8 @@
             group5: "KERNEL"
         };
 
-        // Maximum members per group
-        const MAX_MEMBERS = 5;
+        // Maximum members per group (UPDATED to 6)
+        const MAX_MEMBERS = 6;
         let currentGroup = 'group1';
 
         // Function to add member to a group
@@ -140,7 +140,7 @@
                     return;
                 }
 
-                // Check if group is full
+                // Check if group is full (UPDATED to 6)
                 if (members.length >= MAX_MEMBERS) {
                     alert(`Kumpulan ${groupNames[currentGroup]} sudah penuh! (Maksimum ${MAX_MEMBERS} orang)`);
                     return;
@@ -212,7 +212,7 @@
                     container.appendChild(memberDiv);
                 });
                 
-                // Display empty slots
+                // Display empty slots (UPDATED to 6)
                 const emptySlots = MAX_MEMBERS - members.length;
                 for (let i = 0; i < emptySlots; i++) {
                     const emptyDiv = document.createElement('div');
@@ -221,7 +221,7 @@
                     container.appendChild(emptyDiv);
                 }
                 
-                // Update member count
+                // Update member count (UPDATED to 6)
                 document.getElementById('memberCount').textContent = `${members.length}/${MAX_MEMBERS}`;
             });
         };
@@ -309,7 +309,7 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
             background: white;
             border-radius: 20px;
@@ -440,7 +440,7 @@
 
         .members-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 12px;
             margin-bottom: 20px;
             min-height: 100px;
