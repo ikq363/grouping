@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OS Course Grouping - DIT1C</title>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDpl9UI-HYH8rjqUhNiU8jc4rF2kMTyttU",
+            authDomain: "grouping-fedd0.firebaseapp.com",
+            projectId: "grouping-fedd0",
+            storageBucket: "grouping-fedd0.firebasestorage.app",
+            messagingSenderId: "251221711787",
+            appId: "1:251221711787:web:0cadf532bf8a41c91fd0ee",
+            measurementId: "G-ZPVYE5ELLV"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Group names
+        const groupNames = {
+            group1: "MONO",
+            group2: "LAYERED",
+            group3: "MICRO",
+            group4: "NETWORKED",
+            group5: "KERNEL"
+        };
+
+        // Maximum members per group
+        const MAX_MEMBERS = 5;
+
+        // Current group being viewed
+        let currentGroup = null;
+
+        // Reference to all groups in database
+        const groupsRef = ref(database, 'groups');
+
+        // Function to add member to a group
+        window.addMember = function(groupKey) {
+            const inputId = `input_${groupKey}`;
+            const input = document.getElementById(inputId);
+            const name = input.value.trim();
+            
+            if (!name) {
+                alert('Sila masukkan nama pelajar!');
+                return;
+            }
+
+            // Check if name already exists in any group
+            get(groupsRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    let nameExists = false;
+                    
+                    // Check all groups
+                    for (const group in data) {
+                        if (data[group] && typeof data[group] === 'object') {
+                            for (const member in data[group]) {
+                                if (data[group][member].toLowerCase() === name.toLowerCase()) {
+                                    nameExists = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (nameExists) break;
+                    }
+                    
+                    if (nameExists) {
+                        alert(`Nama "${name}" telah pun didaftarkan dalam kumpulan lain!`);
+                        return;
+                    }
+                }
+
+                // Get current group members
+                const groupRef = ref(database, `groups/${groupKey}`);
+                get(groupRef).then((snapshot) => {
+                    let memberCount = 0;
+                    if (snapshot.exists()) {
+                        memberCount = Object.keys(snapshot.val()).length;
+                    }
+                    
+                    if (memberCount >= MAX_MEMBERS) {
+                        alert(`Kumpulan ${groupNames[groupKey]} sudah penuh! (Maksimum ${MAX_MEMBERS} orang)`);
+                        return;
+                    }
+                    
+                    // Add new member
+                    const newMemberRef = push(groupRef);
+                    set(newMemberRef, name)
+                        .then(() => {
+                            input.value = '';
+                            alert(`Berjaya mendaftar ${name} ke dalam kumpulan ${groupNames[groupKey]}!`);
+                        })
+                        .catch((error) => {
+                            alert('Ralat: ' + error.message);
+                        });
+                });
+            });
+        };
+
+        // Function to display group members
+        window.displayGroup = function(groupKey) {
+            currentGroup = groupKey;
+            const groupName = groupNames[groupKey];
+            
+            // Update header
+            document.getElementById('groupTitle').textContent = `Kumpulan ${groupName}`;
+            
+            // Get members
+            const groupRef = ref(database, `groups/${groupKey}`);
+            onValue(groupRef, (snapshot) => {
+                const container = document.getElementById('membersContainer');
+                container.innerHTML = '';
+                
+                if (snapshot.exists()) {
+                    const members = snapshot.val();
+                    const memberKeys = Object.keys(members);
+                    
+                    // Display existing members
+                    memberKeys.forEach((key) => {
+                        const memberDiv = document.createElement('div');
+                        memberDiv.className = 'member-box filled';
+                        memberDiv.textContent = members[key];
+                        container.appendChild(memberDiv);
+                    });
+                    
+                    // Display empty slots
+                    const emptySlots = MAX_MEMBERS - memberKeys.length;
+                    for (let i = 0; i < emptySlots; i++) {
+                        const emptyDiv = document.createElement('div');
+                        emptyDiv.className = 'member-box empty';
+                        emptyDiv.textContent = 'Kosong';
+                        container.appendChild(emptyDiv);
+                    }
+                } else {
+                    // All slots empty
+                    for (let i = 0; i < MAX_MEMBERS; i++) {
+                        const emptyDiv = document.createElement('div');
+                        emptyDiv.className = 'member-box empty';
+                        emptyDiv.textContent = 'Kosong';
+                        container.appendChild(emptyDiv);
+                    }
+                }
+                
+                // Update member count
+                const memberCount = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
+                document.getElementById('memberCount').textContent = `${memberCount}/${MAX_MEMBERS}`;
+            }, {
+                onlyOnce: false
+            });
+        };
+
+        // Function to highlight selected group
+        window.selectGroup = function(groupKey) {
+            // Remove all highlights
+            document.querySelectorAll('.group-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Highlight selected
+            const btn = document.getElementById(`btn_${groupKey}`);
+            if (btn) btn.classList.add('active');
+            
+            // Display group
+            displayGroup(groupKey);
+        };
+
+        // Initialize with first group
+        window.onload = function() {
+            selectGroup('group1');
+        };
+
+        // Make functions globally accessible
+        window.selectGroup = selectGroup;
+        window.displayGroup = displayGroup;
+        window.addMember = addMember;
+    </script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 5px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 25px;
+            font-size: 16px;
+        }
+
+        .group-buttons {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .group-btn {
+            padding: 12px 8px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            color: #4a5568;
+            transition: all 0.3s ease;
+        }
+
+        .group-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .group-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .group-btn:nth-child(1).active { background: #f56565; border-color: #f56565; }
+        .group-btn:nth-child(2).active { background: #48bb78; border-color: #48bb78; }
+        .group-btn:nth-child(3).active { background: #4299e1; border-color: #4299e1; }
+        .group-btn:nth-child(4).active { background: #ed8936; border-color: #ed8936; }
+        .group-btn:nth-child(5).active { background: #9f7aea; border-color: #9f7aea; }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .group-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        .member-count {
+            font-size: 16px;
+            color: #718096;
+            background: #f7fafc;
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        .members-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+            min-height: 100px;
+        }
+
+        .member-box {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 15px 10px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            word-break: break-word;
+        }
+
+        .member-box.filled {
+            background: #48bb78;
+            color: white;
+            border-color: #48bb78;
+        }
+
+        .member-box.empty {
+            background: #f7fafc;
+            color: #a0aec0;
+            border-style: dashed;
+        }
+
+        .add-member-section {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #e2e8f0;
+        }
+
+        .add-member-section input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .add-member-section input:focus {
+            border-color: #667eea;
+        }
+
+        .add-member-section button {
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .add-member-section button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .info-text {
+            text-align: center;
+            margin-top: 20px;
+            color: #718096;
+            font-size: 14px;
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .group-buttons {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .members-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .group-title {
+                font-size: 20px;
+            }
+
+            .add-member-section {
+                flex-direction: column;
+            }
+
+            .add-member-section button {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .group-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .members-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Program Operating System</h1>
+        <p class="subtitle">Kelas DIT1C - Pembahagian Kumpulan</p>
+
+        <!-- Group Buttons -->
+        <div class="group-buttons">
+            <button class="group-btn" id="btn_group1" onclick="selectGroup('group1')" style="border-color: #f56565; color: #f56565;">
+                🟥 MONO
+            </button>
+            <button class="group-btn" id="btn_group2" onclick="selectGroup('group2')" style="border-color: #48bb78; color: #48bb78;">
+                🟩 LAYERED
+            </button>
+            <button class="group-btn" id="btn_group3" onclick="selectGroup('group3')" style="border-color: #4299e1; color: #4299e1;">
+                🟦 MICRO
+            </button>
+            <button class="group-btn" id="btn_group4" onclick="selectGroup('group4')" style="border-color: #ed8936; color: #ed8936;">
+                🟧 NETWORKED
+            </button>
+            <button class="group-btn" id="btn_group5" onclick="selectGroup('group5')" style="border-color: #9f7aea; color: #9f7aea;">
+                🟪 KERNEL
+            </button>
+        </div>
+
+        <!-- Group Display -->
+        <div class="group-header">
+            <span class="group-title" id="groupTitle">Kumpulan MONO</span>
+            <span class="member-count" id="memberCount">0/5</span>
+        </div>
+
+        <!-- Members Grid -->
+        <div class="members-grid" id="membersContainer">
+            <!-- Dynamic content -->
+        </div>
+
+        <!-- Add Member -->
+        <div class="add-member-section">
+            <input type="text" id="input_group1" placeholder="Masukkan nama pelajar..." />
+            <button onclick="addMember('group1')">➕ Tambah</button>
+        </div>
+
+        <div class="info-text">
+            ⚠️ Setiap kumpulan hanya boleh mempunyai <strong>5 orang</strong> sahaja. 
+            Nama yang telah didaftarkan <strong>tidak boleh</strong> dikeluarkan.
+        </div>
+    </div>
+</body>
+</html>
