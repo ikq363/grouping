@@ -58,16 +58,30 @@
             "imports": {
                 "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
                 "firebase/analytics": "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js",
-                "firebase/database": "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
             }
         }
     </script>
 
     <script type="module">
-        // Import the functions you need from the SDKs you need
+        // Import the functions you need from the SDKs
         import { initializeApp } from "firebase/app";
         import { getAnalytics } from "firebase/analytics";
-        import { getDatabase, ref, set, onValue, push, get, child, remove } from "firebase/database";
+        import { 
+            getFirestore, 
+            collection, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            getDocs, 
+            updateDoc, 
+            arrayUnion, 
+            arrayRemove,
+            onSnapshot,
+            query,
+            where,
+            deleteField
+        } from "firebase/firestore";
 
         // Your web app's Firebase configuration
         const firebaseConfig = {
@@ -83,9 +97,9 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const analytics = getAnalytics(app);
-        const database = getDatabase(app);
+        const db = getFirestore(app);
 
-        console.log('✅ Firebase Connected Successfully!');
+        console.log('✅ Firebase Firestore Connected Successfully!');
 
         // Group names
         const groupNames = {
@@ -101,7 +115,7 @@
         let currentGroup = 'group1';
 
         // Function to add member to a group
-        window.addMember = function() {
+        window.addMember = async function() {
             const input = document.getElementById('memberInput');
             const name = input.value.trim();
             
@@ -110,75 +124,61 @@
                 return;
             }
 
-            // Get current group reference
-            const groupRef = ref(database, `groups/${currentGroup}`);
-            
-            // First, check if group already exists and count members
-            get(groupRef).then((snapshot) => {
-                let memberCount = 0;
-                let existingMembers = [];
+            try {
+                // Reference to the group document
+                const groupRef = doc(db, 'groups', currentGroup);
+                const groupSnap = await getDoc(groupRef);
                 
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    // Check if data is an object (not array)
-                    if (typeof data === 'object') {
-                        existingMembers = Object.values(data);
-                        memberCount = existingMembers.length;
-                    }
+                let members = [];
+                if (groupSnap.exists()) {
+                    members = groupSnap.data().members || [];
                 }
-                
+
                 // Check if name already exists in this group
-                if (existingMembers.some(m => m.toLowerCase() === name.toLowerCase())) {
+                if (members.some(m => m.toLowerCase() === name.toLowerCase())) {
                     alert(`Nama "${name}" sudah ada dalam kumpulan ${groupNames[currentGroup]}!`);
                     return;
                 }
-                
+
                 // Check if group is full
-                if (memberCount >= MAX_MEMBERS) {
+                if (members.length >= MAX_MEMBERS) {
                     alert(`Kumpulan ${groupNames[currentGroup]} sudah penuh! (Maksimum ${MAX_MEMBERS} orang)`);
                     return;
                 }
-                
+
                 // Check if name exists in any other group
-                const allGroupsRef = ref(database, 'groups');
-                get(allGroupsRef).then((allSnapshot) => {
-                    let nameExistsElsewhere = false;
-                    
-                    if (allSnapshot.exists()) {
-                        const allData = allSnapshot.val();
-                        for (const groupKey in allData) {
-                            if (groupKey !== currentGroup && typeof allData[groupKey] === 'object') {
-                                const members = Object.values(allData[groupKey]);
-                                if (members.some(m => m.toLowerCase() === name.toLowerCase())) {
-                                    nameExistsElsewhere = true;
-                                    break;
-                                }
-                            }
+                const allGroupsSnap = await getDocs(collection(db, 'groups'));
+                let nameExistsElsewhere = false;
+                
+                allGroupsSnap.forEach((docSnap) => {
+                    if (docSnap.id !== currentGroup) {
+                        const data = docSnap.data();
+                        if (data.members && data.members.some(m => m.toLowerCase() === name.toLowerCase())) {
+                            nameExistsElsewhere = true;
                         }
                     }
-                    
-                    if (nameExistsElsewhere) {
-                        alert(`Nama "${name}" telah didaftarkan dalam kumpulan lain!`);
-                        return;
-                    }
-                    
-                    // Add new member using push (creates unique key)
-                    const newMemberRef = push(groupRef);
-                    set(newMemberRef, name)
-                        .then(() => {
-                            input.value = '';
-                            alert(`✅ Berjaya mendaftar ${name} ke dalam kumpulan ${groupNames[currentGroup]}!`);
-                            console.log(`✅ Added ${name} to ${groupNames[currentGroup]}`);
-                        })
-                        .catch((error) => {
-                            console.error('❌ Error adding member:', error);
-                            alert('❌ Ralat: ' + error.message);
-                        });
                 });
-            }).catch((error) => {
-                console.error('❌ Error checking group:', error);
+
+                if (nameExistsElsewhere) {
+                    alert(`Nama "${name}" telah didaftarkan dalam kumpulan lain!`);
+                    return;
+                }
+
+                // Add member to the group
+                await setDoc(groupRef, {
+                    members: arrayUnion(name),
+                    groupName: groupNames[currentGroup],
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+
+                input.value = '';
+                alert(`✅ Berjaya mendaftar ${name} ke dalam kumpulan ${groupNames[currentGroup]}!`);
+                console.log(`✅ Added ${name} to ${groupNames[currentGroup]}`);
+
+            } catch (error) {
+                console.error('❌ Error adding member:', error);
                 alert('❌ Ralat: ' + error.message);
-            });
+            }
         };
 
         // Function to display group members
@@ -193,20 +193,15 @@
             const inputField = document.getElementById('memberInput');
             inputField.placeholder = `Masukkan nama untuk kumpulan ${groupName}...`;
             
-            // Get members from Firebase
-            const groupRef = ref(database, `groups/${groupKey}`);
-            onValue(groupRef, (snapshot) => {
+            // Listen to real-time updates from Firestore
+            const groupRef = doc(db, 'groups', groupKey);
+            onSnapshot(groupRef, (docSnap) => {
                 const container = document.getElementById('membersContainer');
                 container.innerHTML = '';
                 
                 let members = [];
-                
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    // Convert object to array if needed
-                    if (typeof data === 'object') {
-                        members = Object.values(data);
-                    }
+                if (docSnap.exists()) {
+                    members = docSnap.data().members || [];
                 }
                 
                 // Display existing members
@@ -228,8 +223,6 @@
                 
                 // Update member count
                 document.getElementById('memberCount').textContent = `${members.length}/${MAX_MEMBERS}`;
-            }, {
-                onlyOnce: false
             });
         };
 
@@ -248,8 +241,33 @@
             displayGroup(groupKey);
         };
 
+        // Initialize groups in Firestore if they don't exist
+        async function initializeGroups() {
+            try {
+                for (const [key, name] of Object.entries(groupNames)) {
+                    const groupRef = doc(db, 'groups', key);
+                    const groupSnap = await getDoc(groupRef);
+                    
+                    if (!groupSnap.exists()) {
+                        await setDoc(groupRef, {
+                            members: [],
+                            groupName: name,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        });
+                        console.log(`✅ Initialized group: ${name}`);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error initializing groups:', error);
+            }
+        }
+
         // Initialize
-        window.onload = function() {
+        window.onload = async function() {
+            // Initialize groups in Firestore
+            await initializeGroups();
+            
             // Setup add button
             const addButton = document.getElementById('addButton');
             addButton.onclick = function(e) {
