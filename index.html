@@ -115,6 +115,21 @@
             // Update header
             document.getElementById('groupTitle').textContent = `Kumpulan ${groupName}`;
             
+            // Update input button to match current group
+            const inputField = document.getElementById('memberInput');
+            const addButton = document.getElementById('addButton');
+            inputField.placeholder = `Masukkan nama untuk kumpulan ${groupName}...`;
+            addButton.onclick = function() {
+                addMember(groupKey);
+            };
+            
+            // Also update the input field to submit on Enter key
+            inputField.onkeypress = function(e) {
+                if (e.key === 'Enter') {
+                    addMember(groupKey);
+                }
+            };
+            
             // Get members
             const groupRef = ref(database, `groups/${groupKey}`);
             onValue(groupRef, (snapshot) => {
@@ -230,33 +245,80 @@
         }
 
         .group-btn {
-            padding: 12px 8px;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
+            padding: 14px 10px;
+            border: 3px solid #e2e8f0;
+            border-radius: 12px;
             background: white;
             cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            color: #4a5568;
+            font-weight: 700;
+            font-size: 15px;
+            color: #2d3748;
             transition: all 0.3s ease;
+            position: relative;
+            letter-spacing: 0.5px;
         }
 
         .group-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
         }
 
         .group-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
+            color: white !important;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
         }
 
-        .group-btn:nth-child(1).active { background: #f56565; border-color: #f56565; }
-        .group-btn:nth-child(2).active { background: #48bb78; border-color: #48bb78; }
-        .group-btn:nth-child(3).active { background: #4299e1; border-color: #4299e1; }
-        .group-btn:nth-child(4).active { background: #ed8936; border-color: #ed8936; }
-        .group-btn:nth-child(5).active { background: #9f7aea; border-color: #9f7aea; }
+        /* Individual group colors */
+        .group-btn:nth-child(1) {
+            border-color: #f56565;
+            color: #f56565;
+            background: #fff5f5;
+        }
+        .group-btn:nth-child(1).active {
+            background: #f56565;
+            color: white !important;
+        }
+
+        .group-btn:nth-child(2) {
+            border-color: #48bb78;
+            color: #48bb78;
+            background: #f0fff4;
+        }
+        .group-btn:nth-child(2).active {
+            background: #48bb78;
+            color: white !important;
+        }
+
+        .group-btn:nth-child(3) {
+            border-color: #4299e1;
+            color: #4299e1;
+            background: #ebf8ff;
+        }
+        .group-btn:nth-child(3).active {
+            background: #4299e1;
+            color: white !important;
+        }
+
+        .group-btn:nth-child(4) {
+            border-color: #ed8936;
+            color: #ed8936;
+            background: #fffaf0;
+        }
+        .group-btn:nth-child(4).active {
+            background: #ed8936;
+            color: white !important;
+        }
+
+        .group-btn:nth-child(5) {
+            border-color: #9f7aea;
+            color: #9f7aea;
+            background: #faf5ff;
+        }
+        .group-btn:nth-child(5).active {
+            background: #9f7aea;
+            color: white !important;
+        }
 
         .group-header {
             display: flex;
@@ -279,6 +341,7 @@
             background: #f7fafc;
             padding: 5px 15px;
             border-radius: 20px;
+            font-weight: 600;
         }
 
         .members-grid {
@@ -295,9 +358,9 @@
             padding: 15px 10px;
             text-align: center;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
             transition: all 0.3s ease;
-            min-height: 60px;
+            min-height: 65px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -308,12 +371,14 @@
             background: #48bb78;
             color: white;
             border-color: #48bb78;
+            box-shadow: 0 2px 8px rgba(72, 187, 120, 0.3);
         }
 
         .member-box.empty {
             background: #f7fafc;
             color: #a0aec0;
             border-style: dashed;
+            border-color: #cbd5e0;
         }
 
         .add-member-section {
@@ -336,6 +401,7 @@
 
         .add-member-section input:focus {
             border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         .add-member-section button {
@@ -356,14 +422,23 @@
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
+        .add-member-section button:active {
+            transform: translateY(0);
+        }
+
         .info-text {
             text-align: center;
             margin-top: 20px;
             color: #718096;
             font-size: 14px;
-            padding: 10px;
+            padding: 12px;
             background: #f7fafc;
             border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .info-text strong {
+            color: #2d3748;
         }
 
         @media (max-width: 768px) {
@@ -390,6 +465,11 @@
             .add-member-section button {
                 width: 100%;
             }
+
+            .group-btn {
+                font-size: 13px;
+                padding: 12px 8px;
+            }
         }
 
         @media (max-width: 480px) {
@@ -399,6 +479,11 @@
 
             .members-grid {
                 grid-template-columns: repeat(2, 1fr);
+            }
+
+            .group-btn {
+                font-size: 12px;
+                padding: 10px 6px;
             }
         }
     </style>
@@ -410,19 +495,19 @@
 
         <!-- Group Buttons -->
         <div class="group-buttons">
-            <button class="group-btn" id="btn_group1" onclick="selectGroup('group1')" style="border-color: #f56565; color: #f56565;">
+            <button class="group-btn" id="btn_group1" onclick="selectGroup('group1')">
                 🟥 MONO
             </button>
-            <button class="group-btn" id="btn_group2" onclick="selectGroup('group2')" style="border-color: #48bb78; color: #48bb78;">
+            <button class="group-btn" id="btn_group2" onclick="selectGroup('group2')">
                 🟩 LAYERED
             </button>
-            <button class="group-btn" id="btn_group3" onclick="selectGroup('group3')" style="border-color: #4299e1; color: #4299e1;">
+            <button class="group-btn" id="btn_group3" onclick="selectGroup('group3')">
                 🟦 MICRO
             </button>
-            <button class="group-btn" id="btn_group4" onclick="selectGroup('group4')" style="border-color: #ed8936; color: #ed8936;">
+            <button class="group-btn" id="btn_group4" onclick="selectGroup('group4')">
                 🟧 NETWORKED
             </button>
-            <button class="group-btn" id="btn_group5" onclick="selectGroup('group5')" style="border-color: #9f7aea; color: #9f7aea;">
+            <button class="group-btn" id="btn_group5" onclick="selectGroup('group5')">
                 🟪 KERNEL
             </button>
         </div>
@@ -440,8 +525,8 @@
 
         <!-- Add Member -->
         <div class="add-member-section">
-            <input type="text" id="input_group1" placeholder="Masukkan nama pelajar..." />
-            <button onclick="addMember('group1')">➕ Tambah</button>
+            <input type="text" id="memberInput" placeholder="Masukkan nama pelajar..." />
+            <button id="addButton">➕ Tambah</button>
         </div>
 
         <div class="info-text">
